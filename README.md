@@ -4,13 +4,13 @@ A Python script to download and process ASTER Global Digital Elevation Model (GD
 
 ## Features
 
-- 🚀 **Parallel downloads** with configurable worker threads
-- 🔄 **Resume capability** - automatically skips already downloaded files
-- 📦 **Automatic extraction** - extracts DEM files and discards unnecessary files
-- 🔐 **Bearer token authentication** - secure NASA Earthdata authentication
-- 📊 **Progress tracking** - real-time progress bars and detailed logging
-- 🧪 **Test mode** - verify setup with single file download
-- 💾 **Efficient storage** - option to delete zip files after extraction
+- **Parallel downloads** with configurable worker threads
+- **Resume capability** - automatically skips already downloaded files
+- **Automatic extraction** - extracts DEM files and discards unnecessary files
+- **Bearer token authentication** - secure NASA Earthdata authentication
+- **Progress tracking** - real-time progress bars and detailed logging
+- **Test mode** - verify setup with single file download
+- **Efficient storage** - option to delete zip files after extraction
 
 ## Prerequisites
 
@@ -31,13 +31,12 @@ This project uses [uv](https://github.com/astral-sh/uv) for Python package manag
 
 ## Installation
 
-### 1. Clone or Download the Script
+### 1. Clone the Repository
 
 ```bash
-# Create project directory
-mkdir aster-downloader && cd aster-downloader
-
-# Save the script as aster_downloader.py
+# Clone the repository
+git clone https://github.com/gavi/elevation-data.git
+cd elevation-data
 ```
 
 ### 2. Install Dependencies with uv
@@ -113,11 +112,11 @@ uv run python aster_downloader.py --delete-zips
 ## Directory Structure
 
 ```
-aster-downloader/
+elevation-data/
 ├── aster_downloader.py     # Main script
 ├── token.txt               # Your NASA Earthdata Bearer token
 ├── aster_download.log      # Detailed log file
-├── requirements.txt        # Python dependencies (optional)
+├── README.md               # This file
 └── data/
     └── aster30m/
         ├── ASTGTMV003_*_dem.tif    # Extracted DEM files
@@ -138,9 +137,9 @@ The script processes ASTER data files as follows:
 
 The script automatically resumes interrupted downloads:
 
-- ✅ **Skips** already downloaded zip files
-- ✅ **Safe** to interrupt with `Ctrl+C`
-- ✅ **Restart** anytime to continue where you left off
+- **Skips** already downloaded zip files
+- **Safe** to interrupt with `Ctrl+C`
+- **Restart** anytime to continue where you left off
 
 ```bash
 # Example: Resume after interruption
@@ -278,13 +277,13 @@ ASTER GDEM is a product of METI and NASA. When using this data, please cite:
 ## Support
 
 For issues related to:
-- **This script**: Check the logs in `aster_download.log`
+- **This script**: Open an issue at https://github.com/gavi/elevation-data/issues
 - **NASA Earthdata**: https://urs.earthdata.nasa.gov/documentation
 - **ASTER Data**: https://lpdaac.usgs.gov/products/astgtmv003/
 
 ## Contributing
 
-Feel free to submit issues or pull requests for improvements.
+Contributions are welcome! Please feel free to submit a Pull Request to https://github.com/gavi/elevation-data
 
 ## Acknowledgments
 
