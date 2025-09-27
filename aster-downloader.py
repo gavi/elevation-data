@@ -267,48 +267,56 @@ class AsterDownloader:
     
     def process_zip(self, zip_path: str) -> Tuple[str, bool, List[str]]:
         """
-        Extract zip file, keep _dem.tif files, ignore _num.tif files.
-        
+        Extract zip file preserving folder structure, skip _num.tif files.
+
         Args:
             zip_path: Path to the zip file
-            
+
         Returns:
-            Tuple of (zip_filename, success, list_of_extracted_dem_files)
+            Tuple of (zip_filename, success, list_of_extracted_files)
         """
         zip_path = Path(zip_path)
-        extracted_dem_files = []
-        
+        extracted_files = []
+
         if not zip_path.exists():
             logger.error(f"Zip file not found: {zip_path}")
             return str(zip_path), False, []
-        
+
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 # List all files in the zip
                 file_list = zip_ref.namelist()
-                
+
                 for file_name in file_list:
-                    # Process only _dem.tif files
-                    if file_name.endswith('_dem.tif'):
-                        # Extract to dem directory
-                        target_path = self.dem_dir / Path(file_name).name
-                        
-                        # Extract file
-                        with zip_ref.open(file_name) as source:
-                            with open(target_path, 'wb') as target:
-                                target.write(source.read())
-                        
-                        extracted_dem_files.append(str(target_path))
-                        logger.debug(f"Extracted DEM file: {target_path}")
-                    
                     # Skip _num.tif files
-                    elif file_name.endswith('_num.tif'):
+                    if file_name.endswith('_num.tif'):
                         logger.debug(f"Skipping NUM file: {file_name}")
                         continue
-            
-            logger.info(f"Processed {zip_path.name}: extracted {len(extracted_dem_files)} DEM files")
-            return str(zip_path), True, extracted_dem_files
-            
+
+                    # Extract all other files preserving folder structure
+                    target_path = self.dem_dir / file_name
+
+                    # Create parent directories if needed
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Skip directories (they're created above)
+                    if file_name.endswith('/'):
+                        continue
+
+                    # Extract file
+                    with zip_ref.open(file_name) as source:
+                        with open(target_path, 'wb') as target:
+                            target.write(source.read())
+
+                    extracted_files.append(str(target_path))
+                    if file_name.endswith('_dem.tif'):
+                        logger.debug(f"Extracted DEM file: {target_path}")
+                    else:
+                        logger.debug(f"Extracted file: {target_path}")
+
+            logger.info(f"Processed {zip_path.name}: extracted {len(extracted_files)} files")
+            return str(zip_path), True, extracted_files
+
         except Exception as e:
             logger.error(f"Error processing zip file {zip_path}: {e}")
             return str(zip_path), False, []
@@ -362,6 +370,45 @@ class AsterDownloader:
                         self.processed_files.append(zip_file)
                 pbar.update(1)
     
+    def reprocess_existing(self) -> None:
+        """
+        Reprocess all existing zip files in the temp directory.
+        """
+        zip_files = list(self.temp_dir.glob("*.zip"))
+
+        if not zip_files:
+            logger.info("No zip files found in temp directory to reprocess")
+            return
+
+        logger.info(f"Found {len(zip_files)} zip files to reprocess")
+
+        # Clear any existing extraction first (optional - you may want to keep this commented)
+        # for item in self.dem_dir.iterdir():
+        #     if item.is_dir():
+        #         shutil.rmtree(item)
+
+        # Process each zip file
+        processed_count = 0
+        failed_count = 0
+
+        with tqdm(total=len(zip_files), desc="Reprocessing") as pbar:
+            for zip_file in zip_files:
+                _, success, extracted_files = self.process_zip(str(zip_file))
+                if success:
+                    processed_count += 1
+                else:
+                    failed_count += 1
+                pbar.update(1)
+
+        logger.info(f"Reprocessing complete: {processed_count} successful, {failed_count} failed")
+
+        # Count total extracted files
+        dem_files = list(self.dem_dir.glob("**/*_dem.tif"))
+        total_files = sum(1 for _ in self.dem_dir.glob("**/*") if _.is_file())
+
+        logger.info(f"Total files extracted: {total_files}")
+        logger.info(f"Total DEM files: {len(dem_files)}")
+
     def cleanup_temp_files(self, delete_zips: bool = False) -> None:
         """
         Clean up temporary files.
@@ -385,23 +432,38 @@ class AsterDownloader:
         print(f"Total files downloaded: {len(self.downloaded_files)}")
         print(f"Total files processed: {len(self.processed_files)}")
         print(f"Failed downloads: {len(self.failed_downloads)}")
-        
+
         if self.failed_downloads:
             print("\nFailed URLs:")
             for url in self.failed_downloads[:10]:  # Show first 10
                 print(f"  - {url}")
             if len(self.failed_downloads) > 10:
                 print(f"  ... and {len(self.failed_downloads) - 10} more")
-        
-        # Count DEM files
-        dem_files = list(self.dem_dir.glob("*_dem.tif"))
-        print(f"\nTotal DEM files extracted: {len(dem_files)}")
-        print(f"Output directory: {self.output_dir.absolute()}")
-        
+
+        # Count DEM files recursively (in folders)
+        dem_files = list(self.dem_dir.glob("**/*_dem.tif"))
+        num_files = list(self.dem_dir.glob("**/*_num.tif"))
+        all_files = sum(1 for _ in self.dem_dir.glob("**/*") if _.is_file())
+
+        # Count folders
+        folders = set()
+        for f in self.dem_dir.glob("**/*"):
+            if f.is_dir() and f != self.dem_dir and f != self.temp_dir:
+                folders.add(f)
+
+        print(f"\nExtracted content:")
+        print(f"  Total folders: {len(folders)}")
+        print(f"  Total files: {all_files}")
+        print(f"  DEM files (*_dem.tif): {len(dem_files)}")
+        if num_files:
+            print(f"  NUM files (*_num.tif): {len(num_files)} (should be 0)")
+
+        print(f"\nOutput directory: {self.output_dir.absolute()}")
+
         # If in test mode, show the extracted file
         if len(dem_files) == 1:
-            print(f"Test file extracted: {dem_files[0].name}")
-        
+            print(f"Test file extracted: {dem_files[0].relative_to(self.output_dir)}")
+
         print("="*50)
 
 
@@ -456,6 +518,11 @@ def main():
         '--token',
         help='NASA Earthdata Bearer token (or save in token.txt)'
     )
+    parser.add_argument(
+        '--reprocess',
+        action='store_true',
+        help='Reprocess existing zip files in temp directory with updated extraction logic'
+    )
     
     args = parser.parse_args()
     
@@ -476,14 +543,38 @@ def main():
         max_workers=args.workers,
         bearer_token=args.token
     )
-    
+
+    # Handle reprocess mode
+    if args.reprocess:
+        logger.info("REPROCESS MODE: Reprocessing existing zip files")
+        print("\n" + "="*60)
+        print("REPROCESS MODE")
+        print("="*60)
+        print("Reprocessing existing zip files with updated extraction logic...")
+        print("This will preserve folder structure and skip _num.tif files.")
+        print("="*60 + "\n")
+
+        try:
+            downloader.reprocess_existing()
+            downloader.print_summary()
+        except KeyboardInterrupt:
+            logger.info("\nReprocessing interrupted by user")
+            downloader.print_summary()
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"Unexpected error during reprocessing: {e}")
+            sys.exit(1)
+
+        # Exit after reprocessing
+        sys.exit(0)
+
     # Fetch URLs
     urls = downloader.fetch_urls(args.url_source)
-    
+
     if not urls:
         logger.error("No URLs found to process")
         sys.exit(1)
-    
+
     try:
         # Download and process files
         downloader.download_batch(urls, args.start, args.end)
