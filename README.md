@@ -1,6 +1,28 @@
-# ASTER DEM Data Downloader
+# Elevation Data Tools
 
-A Python script to download and process ASTER Global Digital Elevation Model (GDEM) data from NASA Earthdata. The script automatically downloads, extracts, and organizes ASTER 30m resolution DEM tiles.
+Python scripts for downloading and processing elevation data from multiple sources:
+- **ASTER Global DEM** - 30m resolution elevation data from NASA Earthdata
+- **Mapzen Terrain Tiles** - Global elevation data from AWS
+
+## Storage Requirements Summary
+
+| Dataset | Compressed | Extracted | Total (if keeping both) |
+|---------|------------|-----------|------------------------|
+| ASTER   | 379 GB     | 319 GB    | 698 GB                |
+| Mapzen  | Unknown    | 1.6 TB    | 1.6 TB                |
+
+## Quick Start
+
+### Download Mapzen Data
+```bash
+# No authentication required - direct download from AWS
+# WARNING: Large dataset - expands to ~1.6TB after extraction
+aws s3 cp --no-sign-request --recursive s3://elevation-tiles-prod/skadi ./data/mapzen
+```
+
+---
+
+# ASTER DEM Data Downloader
 
 ## Features
 
@@ -76,7 +98,7 @@ uv run python aster_downloader.py --test
 
 #### Download All Data
 ```bash
-# Download all ~22,000 ASTER tiles (requires ~1TB storage)
+# Download all ~22,000 ASTER tiles (requires ~319GB storage after extraction)
 uv run python aster_downloader.py
 ```
 
@@ -152,11 +174,12 @@ uv run python aster_downloader.py --start 0 --end 1000
 
 ## Storage Requirements
 
-- **Each zip file**: ~25-30 MB
-- **Each DEM file**: ~25 MB after extraction
-- **Full dataset**: ~22,000 files ≈ 500-600 GB
-- **With zips kept**: ~1 TB total
-- **With `--delete-zips`**: ~500 GB total
+- **Each zip file**: ~17 MB
+- **Each DEM file**: ~15 MB after extraction
+- **Full dataset**: ~22,000 files ≈ 319 GB extracted
+- **Zip files**: ~379 GB
+- **With zips kept**: ~698 GB total
+- **With `--delete-zips`**: ~319 GB total
 
 ## Performance Tips
 
@@ -280,6 +303,123 @@ For issues related to:
 - **This script**: Open an issue at https://github.com/gavi/elevation-data/issues
 - **NASA Earthdata**: https://urs.earthdata.nasa.gov/documentation
 - **ASTER Data**: https://lpdaac.usgs.gov/products/astgtmv003/
+
+---
+
+# Mapzen Terrain Tiles Extractor
+
+A Python script to batch extract Mapzen elevation data for use with OpenTopoData. The script processes compressed `.hgt.gz` files with parallel extraction and resume capability.
+
+## Features
+
+- **Parallel extraction** with ThreadPoolExecutor
+- **Resume capability** - automatically skips already extracted files
+- **Graceful shutdown** - safely stop with Ctrl+C and resume later
+- **Batch processing** - processes files in configurable batches
+- **Progress tracking** - real-time progress updates
+- **Automatic cleanup** - removes .gz files after successful extraction
+- **OpenTopoData ready** - provides setup instructions for OpenTopoData integration
+
+## Prerequisites
+
+### 1. Download Mapzen Data
+
+First, download the Mapzen elevation data from AWS (no authentication required):
+
+```bash
+# Download all Mapzen terrain tiles (~65,341 .hgt.gz files)
+aws s3 cp --no-sign-request --recursive s3://elevation-tiles-prod/skadi ./data/mapzen
+```
+
+**Note:** This downloads ~65,341 `.hgt.gz` files organized in latitude folders. After extraction, the data requires ~1.6TB of storage.
+
+### 2. Python Environment
+
+The script requires Python 3 with standard libraries only (no external dependencies).
+
+## Usage
+
+### Extract All Files
+
+```bash
+# Extract all downloaded .hgt.gz files
+python3 mapzen_downloader.py
+```
+
+The script will:
+1. Scan for all `.hgt.gz` files in `data/mapzen/`
+2. Extract them in batches of 1,000 files
+3. Remove `.gz` files after successful extraction
+4. Show progress and allow resuming if interrupted
+
+### Resume After Interruption
+
+The script is safe to interrupt and resume:
+
+```bash
+# Start extraction
+python3 mapzen_downloader.py
+# Press Ctrl+C to stop gracefully
+
+# Resume later - will skip already extracted files
+python3 mapzen_downloader.py
+```
+
+## Directory Structure
+
+```
+elevation-data/
+├── mapzen_downloader.py    # Extraction script
+└── data/
+    └── mapzen/
+        ├── N00/            # Latitude folders
+        │   ├── N00E006.hgt # Extracted elevation files
+        │   └── ...
+        ├── N01/
+        └── ...
+```
+
+## OpenTopoData Integration
+
+After extraction is complete, the script provides instructions for OpenTopoData setup:
+
+1. **Update config.yaml**:
+```yaml
+datasets:
+- name: mapzen
+  path: data/mapzen/
+```
+
+2. **Restart Docker container**:
+```bash
+docker restart opentopodata
+```
+
+3. **Test the endpoint**:
+```bash
+curl 'http://localhost:5000/v1/mapzen?locations=40.7128,-74.0060'
+```
+
+## Data Information
+
+### Mapzen Terrain Tiles
+- **Resolution**: 1 arc-second (~30 meters at equator)
+- **Coverage**: Global (83°N to 83°S)
+- **Format**: SRTM HGT format
+- **Tile Size**: 1° x 1° (3601 x 3601 samples)
+- **Organization**: Files grouped by latitude folders (e.g., N00/, S01/)
+- **Total Size**: ~1.6TB uncompressed
+
+### File Naming Convention
+- `N00E006.hgt` - 0° North, 6° East
+- `S33W070.hgt` - 33° South, 70° West
+
+## Performance
+
+- **Extraction Speed**: ~10-20 files/second depending on disk speed
+- **Total Time**: ~1-2 hours for complete dataset
+- **CPU Usage**: Utilizes multiple threads (default: 8)
+- **Memory Usage**: Minimal (~100MB)
 
 ## Contributing
 
