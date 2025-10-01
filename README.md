@@ -4,6 +4,24 @@ Python scripts for downloading and processing elevation data from multiple sourc
 - **ASTER Global DEM** - 30m resolution elevation data from NASA Earthdata
 - **Mapzen Terrain Tiles** - Global elevation data from AWS
 
+## Prerequisites
+
+### Python Environment with uv
+
+This project uses [uv](https://github.com/astral-sh/uv) for Python package management.
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies (for ASTER downloader)
+uv pip install requests tqdm
+```
+
 ## Storage Requirements Summary
 
 | Dataset | Compressed | Extracted | Total (if keeping both) |
@@ -47,35 +65,7 @@ You need a NASA Earthdata account to download ASTER data:
    - Navigate to: **Generate Token** → **Generate Token**
    - Copy the entire token string
 
-### 2. Python Environment with uv
-
-This project uses [uv](https://github.com/astral-sh/uv) for Python package management.
-
-## Installation
-
-### 1. Clone the Repository
-
-```bash
-# Clone the repository
-git clone https://github.com/gavi/elevation-data.git
-cd elevation-data
-```
-
-### 2. Install Dependencies with uv
-
-```bash
-# Install uv if not already installed
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create virtual environment and install dependencies
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install required packages
-uv pip install requests tqdm
-```
-
-### 3. Configure Authentication
+### 2. Configure Authentication
 
 Create a `token.txt` file in the same directory as the script:
 
@@ -93,28 +83,28 @@ echo "YOUR_BEARER_TOKEN_HERE" > token.txt
 #### Test Mode (Recommended First Step)
 ```bash
 # Download only the first file to verify setup
-uv run python aster_downloader.py --test
+uv run python aster-downloader.py --test
 ```
 
 #### Download All Data
 ```bash
 # Download all ~22,000 ASTER tiles (requires ~319GB storage after extraction)
-uv run python aster_downloader.py
+uv run python aster-downloader.py
 ```
 
 #### Download Specific Range
 ```bash
 # Download files 100-200
-uv run python aster_downloader.py --start 100 --end 200
+uv run python aster-downloader.py --start 100 --end 200
 ```
 
 #### Batch Download Examples
 ```bash
 # First 1000 files with 8 parallel workers
-uv run python aster_downloader.py --start 0 --end 1000 --workers 8
+uv run python aster-downloader.py --start 0 --end 1000 --workers 8
 
 # Download and delete zips after extraction (saves space)
-uv run python aster_downloader.py --delete-zips
+uv run python aster-downloader.py --delete-zips
 ```
 
 ### Command Line Options
@@ -135,25 +125,25 @@ uv run python aster_downloader.py --delete-zips
 
 ```
 elevation-data/
-├── aster_downloader.py     # Main script
+├── aster-downloader.py     # Main script
 ├── token.txt               # Your NASA Earthdata Bearer token
 ├── aster_download.log      # Detailed log file
 ├── README.md               # This file
 └── data/
+    ├── temp_zips/          # Downloaded zip files (temporary)
+    │   └── ASTGTMV003_*.zip
     └── aster30m/
-        ├── ASTGTMV003_*_dem.tif    # Extracted DEM files
-        └── temp_zips/               # Downloaded zip files
-            └── ASTGTMV003_*.zip
+        └── ASTGTMV003_*_dem.tif    # Extracted DEM files
 ```
 
 ## File Processing
 
 The script processes ASTER data files as follows:
 
-1. **Downloads** `.zip` files from NASA Earthdata
-2. **Extracts** `*_dem.tif` files (Digital Elevation Model)
+1. **Downloads** `.zip` files to `data/temp_zips/`
+2. **Extracts** `*_dem.tif` files (Digital Elevation Model) to `data/aster30m/`
 3. **Ignores** `*_num.tif` files (QA/pixel count files)
-4. **Saves** DEM files directly to `data/aster30m/`
+4. **Optionally deletes** zip files after extraction with `--delete-zips`
 
 ## Resume Capability
 
@@ -165,10 +155,10 @@ The script automatically resumes interrupted downloads:
 
 ```bash
 # Example: Resume after interruption
-uv run python aster_downloader.py --start 0 --end 1000
+uv run python aster-downloader.py --start 0 --end 1000
 # Interrupt with Ctrl+C after downloading 500 files
 # Resume:
-uv run python aster_downloader.py --start 0 --end 1000
+uv run python aster-downloader.py --start 0 --end 1000
 # Will skip first 500 and continue from 501
 ```
 
@@ -186,20 +176,20 @@ uv run python aster_downloader.py --start 0 --end 1000
 ### Optimize Download Speed
 ```bash
 # Increase parallel workers for faster downloads
-uv run python aster_downloader.py --workers 8
+uv run python aster-downloader.py --workers 8
 
 # For very fast connections
-uv run python aster_downloader.py --workers 16
+uv run python aster-downloader.py --workers 16
 ```
 
 ### Save Storage Space
 ```bash
 # Delete zips after extraction
-uv run python aster_downloader.py --delete-zips
+uv run python aster-downloader.py --delete-zips
 
 # Process in smaller batches
-uv run python aster_downloader.py --start 0 --end 1000 --delete-zips
-uv run python aster_downloader.py --start 1000 --end 2000 --delete-zips
+uv run python aster-downloader.py --start 0 --end 1000 --delete-zips
+uv run python aster-downloader.py --start 1000 --end 2000 --delete-zips
 ```
 
 ### Monitor Progress
@@ -227,9 +217,9 @@ tail -f aster_download.log
 ### Disk Space Issues
 - **Issue**: Running out of storage
 - **Solution**:
-  - Use `--delete-zips` flag
+  - Use `--delete-zips` flag to remove data/temp_zips after extraction
   - Process in smaller batches
-  - Check available space: `df -h data/aster30m`
+  - Check available space: `df -h data/`
 
 ### Slow Downloads
 - **Issue**: Downloads taking too long
@@ -254,20 +244,20 @@ curl -O https://www.opentopodata.org/datasets/aster30m_urls.txt
 grep -E "N[0-1][0-9]E[0-4][0-9]|S[0-1][0-9]E[0-4][0-9]" aster30m_urls.txt > africa_urls.txt
 
 # Use custom URL file
-uv run python aster_downloader.py --url-source africa_urls.txt
+uv run python aster-downloader.py --url-source africa_urls.txt
 ```
 
 ### Production Download Strategy
 ```bash
 # 1. Test setup
-uv run python aster_downloader.py --test
+uv run python aster-downloader.py --test
 
 # 2. Download first batch to estimate time/space
-uv run python aster_downloader.py --start 0 --end 100
+uv run python aster-downloader.py --start 0 --end 100
 
 # 3. Download in 5000-file batches with cleanup
 for i in 0 5000 10000 15000 20000; do
-    uv run python aster_downloader.py --start $i --end $((i+5000)) --workers 8 --delete-zips
+    uv run python aster-downloader.py --start $i --end $((i+5000)) --workers 8 --delete-zips
 done
 ```
 
@@ -333,9 +323,6 @@ aws s3 cp --no-sign-request --recursive s3://elevation-tiles-prod/skadi ./data/m
 
 **Note:** This downloads ~65,341 `.hgt.gz` files organized in latitude folders. After extraction, the data requires ~1.6TB of storage.
 
-### 2. Python Environment
-
-The script requires Python 3 with standard libraries only (no external dependencies).
 
 ## Usage
 
@@ -343,7 +330,7 @@ The script requires Python 3 with standard libraries only (no external dependenc
 
 ```bash
 # Extract all downloaded .hgt.gz files
-python3 mapzen_downloader.py
+uv run python mapzen-downloader.py
 ```
 
 The script will:
@@ -358,18 +345,18 @@ The script is safe to interrupt and resume:
 
 ```bash
 # Start extraction
-python3 mapzen_downloader.py
+uv run python mapzen-downloader.py
 # Press Ctrl+C to stop gracefully
 
 # Resume later - will skip already extracted files
-python3 mapzen_downloader.py
+uv run python mapzen-downloader.py
 ```
 
 ## Directory Structure
 
 ```
 elevation-data/
-├── mapzen_downloader.py    # Extraction script
+├── mapzen-downloader.py    # Extraction script
 └── data/
     └── mapzen/
         ├── N00/            # Latitude folders

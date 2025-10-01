@@ -32,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class AsterDownloader:
-    def __init__(self, output_dir: str = "data/aster30m", 
+    def __init__(self, output_dir: str = "data/aster30m",
                  max_workers: int = 4,
                  chunk_size: int = 8192,
                  max_retries: int = 3,
@@ -40,7 +40,7 @@ class AsterDownloader:
                  bearer_token: Optional[str] = None):
         """
         Initialize the ASTER downloader.
-        
+
         Args:
             output_dir: Directory to save downloaded and extracted files
             max_workers: Number of parallel download threads
@@ -51,10 +51,11 @@ class AsterDownloader:
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.temp_dir = self.output_dir / "temp_zips"
+
+        # Store temp_zips at the parent level (e.g., data/temp_zips instead of data/aster30m/temp_zips)
+        self.temp_dir = self.output_dir.parent / "temp_zips"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # DEM files go directly to the root output directory
         self.dem_dir = self.output_dir
         
